@@ -1,4 +1,10 @@
-import { Gpio } from 'onoff';
+import { Gpio } from "onoff";
+import { MockGpio } from "./mock-gpio";
+
+const GpioClass = process.env.NODE_ENV === "production" ? Gpio : MockGpio;
+const tipo = process.env.NODE_ENV === "production" ? "Gpio" : "MockGpio";
+
+console.log("GPIO class", tipo);
 
 export interface Durations {
   red: number;
@@ -7,25 +13,33 @@ export interface Durations {
 }
 
 export class Intersection {
-  private redLed: Gpio;
-  private yellowLed: Gpio;
-  private greenLed: Gpio;
+  private redLed: Gpio | MockGpio;
+  private yellowLed: Gpio | MockGpio;
+  private greenLed: Gpio | MockGpio;
   private redDuration: number;
   private greenDuration: number;
   private yellowDuration: number;
 
-
-  
-  constructor(redPin: number, yellowPin: number, greenPin: number, durations: Durations) {
-    this.redLed = new Gpio(redPin, 'out');
-    this.yellowLed = new Gpio(yellowPin, 'out');
-    this.greenLed = new Gpio(greenPin, 'out');
+  constructor(
+    redPin: number,
+    yellowPin: number,
+    greenPin: number,
+    durations: Durations
+  ) {
+    this.redLed = new GpioClass(redPin, "out");
+    this.yellowLed = new GpioClass(yellowPin, "out");
+    this.greenLed = new GpioClass(greenPin, "out");
 
     this.redDuration = durations.red;
     this.greenDuration = durations.green;
     this.yellowDuration = durations.yellow;
   }
 
+  updateDurations(durations: Durations) {
+    this.redDuration = durations.red;
+    this.yellowDuration = durations.yellow;
+    this.greenDuration = durations.green;
+  }
 
   get getRedDuration(): number {
     return this.redDuration * 1000;
@@ -69,9 +83,11 @@ export class Intersection {
     this.greenLed.writeSync(1);
   }
 
-
-
-
-
-
+  getStatus() {
+    return {
+      red: this.redLed.readSync() === 1,
+      yellow: this.yellowLed.readSync() === 1,
+      green: this.greenLed.readSync() === 1,
+    };
+  }
 }
