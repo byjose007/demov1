@@ -7,11 +7,11 @@ async function bootstrap() {
   const myService = app.get(AppService);
   // Configuración CORS
   app.enableCors({
-    origin: "http://localhost:4200",
+    origin: "*",
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     allowedHeaders: "Content-Type,Authorization",
   });
-  await app.listen(3200);
+  await app.listen(3200, '0.0.0.0');
 
   await myService.startTrafficLightCycle();
 }
