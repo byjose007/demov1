@@ -2,6 +2,7 @@ import { HttpService } from "@nestjs/axios";
 import { HttpCode, Injectable, OnModuleInit } from "@nestjs/common";
 import { firstValueFrom } from "rxjs";
 import { Durations, Intersection } from "./intersection.class";
+import { TrafficLightVisualizer } from "./traffic-light-visualizer-log";
 
 @Injectable()
 export class AppService implements OnModuleInit {
@@ -19,8 +20,8 @@ export class AppService implements OnModuleInit {
 
   constructor() {
     // Initialize with default values
-    this.normalTimings = { red: 1, yellow: 3, green: 35 }; // Normal schedul 35 seconds
-    this.peakTimings = { red: 1, yellow: 3, green: 45 }; // Peak schedul 45 seconds
+    this.normalTimings = { red: 1, yellow: 3, green: 30 }; // Normal schedul 35 seconds
+    this.peakTimings = { red: 1, yellow: 3, green: 30 }; // Peak schedul 45 seconds
   }
 
   onModuleInit() {
@@ -136,6 +137,8 @@ export class AppService implements OnModuleInit {
   }
 
   async startTrafficLightCycle(isInit = true) {
+
+    
     this.isInit = isInit;
     this.shouldContinueCycle = true;
     this.isFlaseo = false;
@@ -144,103 +147,110 @@ export class AppService implements OnModuleInit {
     try {
       while (this.isInit) {
         if (this.isFlaseo) break;
-        console.log("-------- Inicio del ciclo de luz --------1");
-        console.log("Semáforo 1: Luz roja => 1");
-        console.log("Semáforo 2: Luz roja => 4");
+
+        // Fase inicial - todos rojos
+        TrafficLightVisualizer.drawTrafficLight(1, "red", "1");
+        TrafficLightVisualizer.drawTrafficLight(2, "red", "1");
+        TrafficLightVisualizer.drawTrafficLight(3, "red", "1");
+
         this.intersection1.turnRed();
         this.intersection2.turnRed();
         this.intersection3.turnRed();
-        // this.intersection4.turnRed();
-        // this.peaton1.turnRed();
         await this.sleep(this.intersection1.getRedDuration);
 
         if (this.isFlaseo) break;
-        console.log("-------- Fase1 ----- #2");
-        console.log("Semáforo 1: Luz verde => 3");
-        console.log("Semáforo 2: Luz roja => 4");
+
+        // Fase 1 - Verde para intersección 1
+        TrafficLightVisualizer.drawTrafficLight(1, "green", "2");
+        TrafficLightVisualizer.drawTrafficLight(2, "red", "2");
+        TrafficLightVisualizer.drawTrafficLight(3, "red", "2");
+
         this.intersection1.turnGreen();
         this.intersection2.turnRed();
-        // this.intersection3.turnRed();
-        // this.intersection4.turnRed();
-        // this.peaton1.turnRed();
         await this.sleep(this.intersection1.getGreenDuration);
 
         if (this.isFlaseo) break;
-        console.log("-------- Fase1 ----- #3");
-        console.log("Semáforo 1: Luz Amarillo => 2");
-        console.log("Semáforo 2: Luz roja => 4");
+
+        // Fase 1 - Amarillo para intersección 1
+        TrafficLightVisualizer.drawTrafficLight(1, "yellow", "3");
+        TrafficLightVisualizer.drawTrafficLight(2, "red", "3");
+        TrafficLightVisualizer.drawTrafficLight(3, "red", "3");
+
         this.intersection1.turnYellow();
         this.intersection2.turnRed();
         this.intersection3.turnRed();
-        // this.intersection4.turnRed();
-        // this.peaton1.turnRed();
         await this.sleep(this.intersection1.getYellowDuration);
 
         if (this.isFlaseo) break;
-        console.log("-------- rojos ----- 4");
-        console.log("Semáforo 1: Luz roja => 1");
-        console.log("Semáforo 2: Luz roja => 4");
+
+        // Todos rojos
+        TrafficLightVisualizer.drawTrafficLight(1, "red", "4");
+        TrafficLightVisualizer.drawTrafficLight(2, "red", "4");
+        TrafficLightVisualizer.drawTrafficLight(3, "red", "4");
+
         this.intersection1.turnRed();
         this.intersection2.turnRed();
         this.intersection3.turnRed();
-        // this.intersection4.turnRed();
-        // this.peaton1.turnRed();
         await this.sleep(this.intersection2.getRedDuration);
 
         if (this.isFlaseo) break;
-        console.log("-------- Fase2------ #5");
-        console.log("Semáforo 1: Luz Rojo => 1");
-        console.log("Semáforo 2: Luz Verde => 6");
-        console.log("peaton verde");
+
+        // Fase 2 - Verde para intersección 2
+        TrafficLightVisualizer.drawTrafficLight(1, "red", "5");
+        TrafficLightVisualizer.drawTrafficLight(2, "green", "5");
+        TrafficLightVisualizer.drawTrafficLight(3, "red", "5");
+
         this.intersection1.turnRed();
         this.intersection2.turnGreen();
         this.intersection3.turnRed();
-        // this.intersection4.turnRed();
-        // this.peaton1.turnGreen();
         await this.sleep(this.intersection2.getGreenDuration);
 
         if (this.isFlaseo) break;
-        console.log("-------- Fase2 ----- #6");
-        console.log("Semáforo 1: Luz roja => 1");
-        console.log("Semáforo 2: Luz Amarillo => 5");
+
+        // Fase 2 - Amarillo para intersección 2
+        TrafficLightVisualizer.drawTrafficLight(1, "red", "6");
+        TrafficLightVisualizer.drawTrafficLight(2, "yellow", "6");
+        TrafficLightVisualizer.drawTrafficLight(3, "red", "6");
+
         this.intersection1.turnRed();
         this.intersection2.turnYellow();
         this.intersection3.turnRed();
-        // this.intersection4.turnRed();
-        // this.peaton1.turnGreen();
         await this.sleep(this.intersection2.getYellowDuration);
 
         if (this.isFlaseo) break;
-        console.log("-------- rojos ----- #7");
-        console.log("Semáforo 1: Luz roja => 1");
-        console.log("Semáforo 2: Luz roja => 4");
+
+        // Todos rojos
+        TrafficLightVisualizer.drawTrafficLight(1, "red", "7");
+        TrafficLightVisualizer.drawTrafficLight(2, "red", "7");
+        TrafficLightVisualizer.drawTrafficLight(3, "red", "7");
+
         this.intersection1.turnRed();
         this.intersection2.turnRed();
         this.intersection3.turnRed();
-        // this.intersection4.turnRed();
-        // this.peaton1.turnRed();
         await this.sleep(this.intersection2.getRedDuration);
 
         if (this.isFlaseo) break;
-        console.log("-------- Fase3 ------ #8");
-        console.log("Semáforo 1: Luz roja => 1");
-        console.log("Semáforo 2: Luz roja => 4");
+
+        // Fase 3 - Verde para intersección 3
+        TrafficLightVisualizer.drawTrafficLight(1, "red", "8");
+        TrafficLightVisualizer.drawTrafficLight(2, "red", "8");
+        TrafficLightVisualizer.drawTrafficLight(3, "green", "8");
+
         this.intersection1.turnRed();
         this.intersection2.turnRed();
         this.intersection3.turnGreen();
-        // this.intersection4.turnRed();
-        // this.peaton1.turnGreen();
         await this.sleep(this.intersection3.getGreenDuration);
 
         if (this.isFlaseo) break;
-        console.log("-------- Fase3 ------ #9");
-        console.log("Semáforo 1: Luz roja => 1");
-        console.log("Semáforo 2: Luz roja => 4");
+
+        // Fase 3 - Amarillo para intersección 3
+        TrafficLightVisualizer.drawTrafficLight(1, "red", "9");
+        TrafficLightVisualizer.drawTrafficLight(2, "red", "9");
+        TrafficLightVisualizer.drawTrafficLight(3, "yellow", "9");
+
         this.intersection1.turnRed();
         this.intersection2.turnRed();
         this.intersection3.turnYellow();
-        // this.intersection4.turnRed();
-        // this.peaton1.turnRed();
         await this.sleep(this.intersection3.getYellowDuration);
       }
 
@@ -305,29 +315,36 @@ export class AppService implements OnModuleInit {
     await this.stopTraffic(false, true);
     this.isFlaseo = isFlaseo;
     console.log("Iniciando flasheo", this.isFlaseo);
+
     if (!this.isFlaseo) {
       console.log("apagar flasheo", this.isFlaseo);
-      // await this.stopCycle()
       await this.stopTraffic(false, isFlaseo);
       return;
     }
 
     while (this.isFlaseo) {
       try {
+        TrafficLightVisualizer.drawTrafficLight(1, "yellow", "F");
+        TrafficLightVisualizer.drawTrafficLight(2, "yellow", "F");
+        TrafficLightVisualizer.drawTrafficLight(3, "red", "F");
+
         await this.intersection1.turnYellow();
         await this.intersection2.turnYellow();
         await this.intersection3.turnRed();
         await this.sleep(1000);
-        console.log("flashhhh");
-        await this.intersection1.stopTrafficLightCycle()
-        await this.intersection2.stopTrafficLightCycle()
-        await this.intersection3.stopTrafficLightCycle()
-        await this.sleep(1000);
+
+        TrafficLightVisualizer.drawTrafficLight(1, "off", "F");
+        TrafficLightVisualizer.drawTrafficLight(2, "off", "F");
+        TrafficLightVisualizer.drawTrafficLight(3, "off", "F");
+
+        await this.intersection1.stopTrafficLightCycle();
+        await this.intersection2.stopTrafficLightCycle();
+        await this.intersection3.stopTrafficLightCycle();
+        await this.sleep(5000);
       } catch (e) {
         console.log(e, "error");
       }
     }
-
     await this.stopTraffic(false, false);
   }
 }

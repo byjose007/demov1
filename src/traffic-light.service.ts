@@ -39,18 +39,18 @@ export class TrafficLightService {
     this.greenLed.writeSync(1);
   }
 
-  async startTrafficLightCycle() {
-    this.turnRed();
-    await this.sleep(this.redDuration);
+  // async startTrafficLightCycle() {
+  //   this.turnRed();
+  //   await this.sleep(this.redDuration);
 
-    this.turnGreen();
-    await this.sleep(this.greenDuration);
+  //   this.turnGreen();
+  //   await this.sleep(this.greenDuration);
 
-    this.turnYellow();
-    await this.sleep(this.yellowDuration);
+  //   this.turnYellow();
+  //   await this.sleep(this.yellowDuration);
 
-    this.startTrafficLightCycle(); // Repetir el ciclo
-  }
+  //   this.startTrafficLightCycle(); // Repetir el ciclo
+  // }
 
   private sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));

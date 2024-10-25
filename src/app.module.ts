@@ -6,10 +6,11 @@ import { HttpModule } from "@nestjs/axios";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ButtonService } from "./button.service";
 import { TrafficLightScheduleService } from "./traffic-light-schedule-service/traffic-light-schedule-service";
+import { TrafficLightGateway } from "./traffic-light-gateway";
 
 @Module({
   imports: [HttpModule, ScheduleModule.forRoot()],
   controllers: [AppController],
-  providers: [AppService, ButtonService, TrafficLightScheduleService],
+  providers: [AppService, ButtonService, TrafficLightScheduleService, TrafficLightGateway],
 })
 export class AppModule {}

@@ -8,6 +8,7 @@ import { Intersection } from './intersection.class';
   cors: {
     origin: 'http://localhost:4200',
     methods: ['GET', 'POST'],
+    credentials: true
   },
 })
 @Injectable()
@@ -23,6 +24,10 @@ export class TrafficLightGateway implements OnGatewayConnection, OnGatewayDiscon
   handleConnection(client: Socket) {
     console.log(`Client connected: ${client.id}`);
     this.clients.add(client);
+
+    // Enviar estado inicial inmediatamente
+    const initialStatus = this.appService.getIntersectionsStatus();
+    client.emit('trafficStatus', initialStatus);
 
     // Si es el primer cliente, iniciamos el intervalo
     if (this.clients.size === 1) {
@@ -41,10 +46,14 @@ export class TrafficLightGateway implements OnGatewayConnection, OnGatewayDiscon
   }
 
   private startStatusInterval() {
+    if (this.statusInterval) {
+      clearInterval(this.statusInterval);
+    }
+    
     this.statusInterval = setInterval(() => {
-      const status = this.appService.getIntersectionsStatus();
+      const status: any= this.appService.getIntersectionsStatus();
       this.broadcastStatus(status);
-    }, 1000); // Actualiza cada segundo
+    }, 1000);
   }
 
   private stopStatusInterval() {
@@ -53,7 +62,7 @@ export class TrafficLightGateway implements OnGatewayConnection, OnGatewayDiscon
     }
   }
 
-  private broadcastStatus(status: any[]) {
+  private broadcastStatus(status: Intersection[]) {
     this.server.emit('trafficStatus', status);
   }
 }
