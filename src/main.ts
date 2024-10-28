@@ -1,18 +1,22 @@
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module";
-import { AppService } from "./app.service";
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
+  // const app = await NestFactory.create(AppModule);
   const app = await NestFactory.create(AppModule, { cors: true });
-  const myService = app.get(AppService);
-  // Configuración CORS
-  app.enableCors({
-    origin: "*",
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    allowedHeaders: "Content-Type,Authorization",
-  });
-  await app.listen(3200, '0.0.0.0');
+  
+  // app.enableCors({
+  //   origin: '*',
+  //   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+  //   allowedHeaders: "Content-Type"
 
-  await myService.startTrafficLightCycle();
+  //   // credentials: true,
+
+  // });
+
+  // app.useWebSocketAdapter(new IoAdapter(app));
+  
+  await app.listen(3000);
 }
 bootstrap();

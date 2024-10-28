@@ -4,7 +4,7 @@ import { AppService } from './app.service';
 import { Injectable } from '@nestjs/common';
 import { Intersection } from './intersection.class';
 
-@WebSocketGateway({
+@WebSocketGateway(3201 , {
   cors: {
     origin: 'http://localhost:4200',
     methods: ['GET', 'POST'],
