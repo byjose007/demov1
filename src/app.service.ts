@@ -39,11 +39,18 @@ export class AppService implements OnModuleInit {
   private readonly PEDESTRIAN_CROSSING_DURATION = 15000;
 
   // Timings predeterminados
-  private readonly normalTimings: TimingConfig = { red: 1, yellow: 3, green: 35 }; // Normal schedul 35 seconds
+  private readonly normalTimings: TimingConfig = {
+    red: 1,
+    yellow: 3,
+    green: 35,
+  }; // Normal schedul 35 seconds
   private readonly peakTimings: TimingConfig = { red: 1, yellow: 3, green: 45 }; // Peak schedul 45 seconds
   private readonly flashTimings: TimingConfig = { red: 1, yellow: 1, green: 1 }; // Flash schedul 1 second
-  private readonly pedestrianTimings: TimingConfig = { red: 1, yellow: 0, green: 10 };
-
+  private readonly pedestrianTimings: TimingConfig = {
+    red: 1,
+    yellow: 0,
+    green: 10,
+  };
 
   // Estado del sistema
   private isFlaseo = false;
@@ -63,8 +70,13 @@ export class AppService implements OnModuleInit {
    * Inicialización del módulo
    */
   async onModuleInit() {
-    await this.initializeSystem();
-    await this.startTrafficSystem();
+    try {
+      await this.initializeSystem();
+      // Iniciamos el sistema en un proceso separado
+      setImmediate(() => this.startTrafficSystem());
+    } catch (error) {
+      this.logger.error("Error en la inicialización:", error);
+    }
   }
 
   getNormalTimings() {
