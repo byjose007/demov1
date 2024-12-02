@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { Gpio } from "onoff";
-import { Intersection } from "./intersection.class";
-import { MockGpio } from "./mock-gpio";
+import { Intersection } from "../intersection.class";
+import { MockGpio } from "../shared/mock-gpio";
 
 const GpioClass = process.env.NODE_ENV === "production" ? Gpio : MockGpio;
 

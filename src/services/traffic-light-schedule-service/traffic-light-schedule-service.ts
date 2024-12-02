@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Servicio para gestionar los horarios programados del sistema de semáforos
  * Este servicio maneja la programación automática de los diferentes modos de operación
@@ -12,7 +13,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { AppService } from "../app.service";
-import { TrafficMode } from "../enums/traffic-mode.enum";
+import { TrafficMode } from "../../enums/traffic-mode.enum";
+import { RtcService } from "src/services/rtc.service";
+
 
 /**
  * Servicio para la programación automática del sistema de semáforos
@@ -25,7 +28,7 @@ import { TrafficMode } from "../enums/traffic-mode.enum";
 export class TrafficLightScheduleService {
   private readonly logger = new Logger(TrafficLightScheduleService.name);
 
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly appService: AppService, private rtcService: RtcService) {}
 
   /**
    * Inicia el horario normal en días de semana a las 5:00 AM
@@ -163,16 +166,16 @@ export class TrafficLightScheduleService {
         case TrafficMode.PEAK:
         case TrafficMode.NORMAL:
           // Detener el ciclo actual antes de iniciar uno nuevo
-          await this.appService.stopCycle();
+          // await this.appService.stopCycle();
           // Iniciar nuevo ciclo con los tiempos correspondientes al modo
-          await this.appService.startTrafficLightCycle(true);
+          await this.appService.startTrafficLightCycle();
           break;
       }
       this.logger.log(`Modo de tráfico cambiado exitosamente a: ${mode}`);
     } catch (error) {
       this.logger.error(`Error al cambiar al modo ${mode}:`, error);
       // Intento de recuperación del sistema
-      await this.appService.startTrafficLightCycle(true);
+      await this.appService.startTrafficLightCycle();
     }
   }
 
@@ -182,7 +185,7 @@ export class TrafficLightScheduleService {
    * @private
    */
   private isWeekday(): boolean {
-    const day = new Date().getDay();
+    const day =  this.rtcService.getCurrentTime().getDay(); //new Date().getDay();
     return day >= 1 && day <= 5;
   }
 }

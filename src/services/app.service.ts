@@ -1,16 +1,16 @@
 import { Injectable, OnModuleInit, Logger } from "@nestjs/common";
-import { Intersection } from "./intersection.class";
-import { TrafficLightVisualizer } from "./traffic-light-visualizer-log";
-import { TrafficMode } from "./enums/traffic-mode.enum";
+import { Intersection } from "../intersection.class";
+import { TrafficLightVisualizer } from "../shared/traffic-light-visualizer-log";
+import { TrafficMode } from "../enums/traffic-mode.enum";
+import { RtcService } from "./rtc.service";
+import { BehaviorSubject, Observable, retry, share, Subscription } from "rxjs";
+import { TimingConfig, TrafficState } from "src/interfaces/trafic-state.interface";
+import { TrafficLightGateway } from "src/gateways/traffic-light-gateway";
 
 /**
  * Configuración de tiempos para los semáforos
  */
-interface TimingConfig {
-  red: number;
-  yellow: number;
-  green: number;
-}
+
 
 /**
  * Configuración de una intersección
@@ -32,6 +32,8 @@ interface IntersectionConfig {
 @Injectable()
 export class AppService implements OnModuleInit {
   private readonly logger = new Logger(AppService.name);
+  private trafficStateSubject = new BehaviorSubject<TrafficState>(null);
+  private cycleSubscription: Subscription;
 
   // Configuraciones de tiempo
   private readonly FLASH_INTERVAL = 1000;
@@ -43,14 +45,9 @@ export class AppService implements OnModuleInit {
     red: 1,
     yellow: 3,
     green: 35,
-  }; // Normal schedul 35 seconds
-  private readonly peakTimings: TimingConfig = { red: 1, yellow: 3, green: 45 }; // Peak schedul 45 seconds
-  private readonly flashTimings: TimingConfig = { red: 1, yellow: 1, green: 1 }; // Flash schedul 1 second
-  private readonly pedestrianTimings: TimingConfig = {
-    red: 1,
-    yellow: 0,
-    green: 10,
   };
+  private readonly peakTimings: TimingConfig = { red: 1, yellow: 3, green: 45 };
+  private readonly flashTimings: TimingConfig = { red: 1, yellow: 1, green: 1 };
 
   // Estado del sistema
   private isFlaseo = false;
@@ -62,40 +59,26 @@ export class AppService implements OnModuleInit {
   private intersections: Map<number, Intersection> = new Map();
   private pedestrianCrossings: Map<number, Intersection> = new Map();
 
-  constructor() {
+  // Observable público para el estado del tráfico
+  public trafficState$ = this.trafficStateSubject.asObservable();
+
+  constructor(
+    private rtcService: RtcService,
+    private trafficLightGateway: TrafficLightGateway
+  ) {
     this.logger.log("Inicializando servicio de control de tráfico");
   }
 
-  /**
-   * Inicialización del módulo
-   */
   async onModuleInit() {
     try {
       await this.initializeSystem();
-      // Iniciamos el sistema en un proceso separado
-      setImmediate(() => this.startTrafficSystem());
+      await this.startTrafficSystem();
     } catch (error) {
       this.logger.error("Error en la inicialización:", error);
     }
   }
 
-  getNormalTimings() {
-    return this.normalTimings;
-  }
-
-  getPeakTimings() {
-    return this.peakTimings;
-  }
-
-  getFlashTimings() {
-    return this.flashTimings;
-  }
-
-  /**
-   * Inicializa el sistema de tráfico
-   */
   private async initializeSystem() {
-    // Configuración de intersecciones principales
     const intersectionConfigs: IntersectionConfig[] = [
       {
         id: 1,
@@ -114,39 +97,167 @@ export class AppService implements OnModuleInit {
       },
     ];
 
-    // Configuración de cruces peatonales
-    const pedestrianConfigs: IntersectionConfig[] = [
-      {
-        id: 1,
-        pins: { red: 21, yellow: 0, green: 26 },
-        timings: this.pedestrianTimings,
-      },
-    ];
-
-    // Inicializar intersecciones
     for (const config of intersectionConfigs) {
       const intersection = new Intersection(
+        config.id,
         config.pins.red,
         config.pins.yellow,
         config.pins.green,
+
         config.timings
       );
+
       this.intersections.set(config.id, intersection);
     }
 
-    // Inicializar cruces peatonales
-    for (const config of pedestrianConfigs) {
-      const crossing = new Intersection(
-        config.pins.red,
-        config.pins.yellow,
-        config.pins.green,
-        config.timings
-      );
-      this.pedestrianCrossings.set(config.id, crossing);
-    }
-
+    this.updateTrafficState();
     this.logger.log("Sistema inicializado correctamente");
   }
+
+  async startTrafficLightCycle() {
+    this.stopCycle();
+
+    const cycle$ = new Observable<TrafficState>(observer => {
+      let isRunning = true;
+
+      const runCycle = async () => {
+        while (isRunning) {
+          try {
+            await this.executeTrafficCycle();
+            const state = this.getTrafficState();
+            observer.next(state);
+
+            const newMode = this.determineTrafficMode();
+            if (newMode !== this.currentMode) {
+              await this.handleModeChange(newMode);
+            }
+          } catch (error) {
+            this.logger.error('Error en ciclo:', error);
+            observer.error(error);
+          }
+        }
+      };
+
+      runCycle();
+
+      return () => {
+        isRunning = false;
+        this.stopAllTraffic(false, false);
+      };
+    }).pipe(
+      retry(3),
+      share()
+    );
+
+    this.cycleSubscription = cycle$.subscribe({
+      next: (state) => {
+        this.trafficStateSubject.next(state);
+        this.trafficLightGateway.broadcastStatus(state);
+      },
+      error: (error) => {
+        this.logger.error('Error en ciclo de tráfico:', error);
+        this.stopCycle();
+      }
+    });
+
+    return { message: "Traffic light cycle started." };
+  }
+
+ public stopCycle() {
+    if (this.cycleSubscription) {
+      this.cycleSubscription.unsubscribe();
+    }
+    this.stopAllTraffic(false, false);
+    return { message: "Traffic light cycle stopped." };
+  }
+
+  private getTrafficState(): TrafficState {
+    const intersectionStates = {};
+    this.intersections.forEach((intersection, id) => {
+      intersectionStates[id] = intersection.getStatus();
+    });
+
+    return {
+      intersections: intersectionStates,
+      currentMode: this.currentMode,
+      timestamp: Date.now()
+    };
+  }
+
+  private updateTrafficState() {
+    const state = this.getTrafficState();
+    this.trafficStateSubject.next(state);
+    this.trafficLightGateway.broadcastStatus(state);
+  }
+
+  getNormalTimings() {
+    return this.normalTimings;
+  }
+
+  getPeakTimings() {
+    return this.peakTimings;
+  }
+
+  getFlashTimings() {
+    return this.flashTimings;
+  }
+
+  /**
+   * Inicializa el sistema de tráfico
+   */
+  // private async initializeSystem() {
+  //   // Configuración de intersecciones principales
+  //   const intersectionConfigs: IntersectionConfig[] = [
+  //     {
+  //       id: 1,
+  //       pins: { red: 17, yellow: 27, green: 22 },
+  //       timings: this.getInitialTimings(),
+  //     },
+  //     {
+  //       id: 2,
+  //       pins: { red: 6, yellow: 13, green: 19 },
+  //       timings: this.getInitialTimings(),
+  //     },
+  //     {
+  //       id: 3,
+  //       pins: { red: 12, yellow: 16, green: 20 },
+  //       timings: this.getInitialTimings(),
+  //     },
+  //   ];
+
+  //   // Configuración de cruces peatonales
+  //   const pedestrianConfigs: IntersectionConfig[] = [
+  //     {
+  //       id: 1,
+  //       pins: { red: 21, yellow: 0, green: 26 },
+  //       timings: this.pedestrianTimings,
+  //     },
+  //   ];
+
+  //   // Inicializar intersecciones
+  //   for (const config of intersectionConfigs) {
+  //     const intersection = new Intersection(
+  //       config.pins.red,
+  //       config.pins.yellow,
+  //       config.pins.green,
+  //       config.timings
+  //     );
+  //     this.intersections.set(config.id, intersection);
+  //   }
+
+  //   // Inicializar cruces peatonales
+  //   for (const config of pedestrianConfigs) {
+  //     const crossing = new Intersection(
+  //       config.pins.red,
+  //       config.pins.yellow,
+  //       config.pins.green,
+  //       config.timings
+  //     );
+  //     this.pedestrianCrossings.set(config.id, crossing);
+  //   }
+
+  //   this.logger.log("Sistema inicializado correctamente");
+  // }
 
   /**
    * Inicia el sistema de tráfico en el modo apropiado
@@ -170,7 +281,7 @@ export class AppService implements OnModuleInit {
    * Determina el modo de operación según la hora y día
    */
   private determineTrafficMode(): TrafficMode {
-    const now = new Date();
+    const now = this.rtcService.getCurrentTime();
     const hour = now.getHours();
     const day = now.getDay();
     const minute = now.getMinutes();
@@ -223,33 +334,33 @@ export class AppService implements OnModuleInit {
   /**
    * Ciclo principal de control de tráfico
    */
-  async startTrafficLightCycle(isInit = true) {
-    try {
-      this.isInit = isInit;
-      this.shouldContinueCycle = true;
-      this.isFlaseo = false;
-      await this.stopAllTraffic(true, false);
+  // async startTrafficLightCycle(isInit = true) {
+  //   try {
+  //     this.isInit = isInit;
+  //     this.shouldContinueCycle = true;
+  //     this.isFlaseo = false;
+  //     await this.stopAllTraffic(true, false);
 
-      while (this.shouldContinueCycle && this.isInit) {
-        if (this.isFlaseo) break;
+  //     while (this.shouldContinueCycle && this.isInit) {
+  //       if (this.isFlaseo) break;
 
-        const newMode = this.determineTrafficMode();
-        if (newMode !== this.currentMode) {
-          this.currentMode = newMode;
-          this.logModeChange(newMode);
-          if (newMode === TrafficMode.FLASH) {
-            await this.flasheo();
-            break;
-          }
-        }
+  //       const newMode = this.determineTrafficMode();
+  //       if (newMode !== this.currentMode) {
+  //         this.currentMode = newMode;
+  //         this.logModeChange(newMode);
+  //         if (newMode === TrafficMode.FLASH) {
+  //           await this.flasheo();
+  //           break;
+  //         }
+  //       }
 
-        await this.executeTrafficCycle();
-      }
-    } catch (error) {
-      this.logger.error("Error en el ciclo de tráfico:", error);
-      await this.stopAllTraffic(false, false);
-    }
-  }
+  //       await this.executeTrafficCycle();
+  //     }
+  //   } catch (error) {
+  //     this.logger.error("Error en el ciclo de tráfico:", error);
+  //     await this.stopAllTraffic(false, false);
+  //   }
+  // }
 
   /**
    * Modo de flasheo para horario nocturno
@@ -331,7 +442,7 @@ export class AppService implements OnModuleInit {
    * Métodos auxiliares
    */
   private logModeChange(mode: TrafficMode) {
-    this.logger.log(`Cambio de modo: ${mode} - ${new Date().toISOString()}`);
+    this.logger.log(`Cambio de modo: ${mode} - ${this.rtcService.getCurrentTime().toISOString()}`);
   }
 
   private sleep(ms: number) {
@@ -359,10 +470,10 @@ export class AppService implements OnModuleInit {
   /**
    * API pública para el controlador
    */
-  async stopCycle() {
-    await this.stopAllTraffic();
-    this.shouldContinueCycle = false;
-  }
+  // async stopCycle() {
+  //   await this.stopAllTraffic();
+  //   this.shouldContinueCycle = false;
+  // }
 
   /**
    * Métodos para actualizar configuraciones
