@@ -42,7 +42,7 @@ export class AppController {
   getRTCInfo() {
     return {
       status: "success",
-      data: this.rtcService.getRTCInfo(),
+      data: this.rtcService.getSystemInfo(),
       timestamp: new Date().toISOString()
     };
   }

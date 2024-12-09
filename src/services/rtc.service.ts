@@ -102,9 +102,30 @@ export class RtcService implements OnApplicationShutdown {
 
   public getSystemInfo(): Record<string, any> {
     return {
-      isSimulated: this.isSimulated,
+      temperature: this.getTemperature(),
       currentTime: this.getCurrentTime(),
-      timeString: this.getCurrentTime().toLocaleString('es-EC', { timeZone: 'America/Guayaquil' })
+      timeString: this.getCurrentTime().toLocaleString('es-EC', { timeZone: 'America/Guayaquil' }),
+      timeSource: this.isSimulated ? 'system' : 'RTC'      
     };
   }
+
+  private getTemperature(): number {
+    if (this.isSimulated) {
+      return 25; // Return a default temperature in simulation mode
+    }
+
+    try {
+      const buffer = Buffer.alloc(2);
+      this.i2c1.readI2cBlockSync(this.DS3231_ADDR, 0x11, 2, buffer);
+
+      const temp = buffer[0] + (buffer[1] >> 6) * 0.25;
+      return temp;
+    } catch (error) {
+      this.logger.warn(`Error reading temperature: ${error.message}. Returning default temperature.`);
+      return 25; // Return a default temperature in case of error
+    }
+  }
+
+
+
 }
