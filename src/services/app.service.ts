@@ -43,10 +43,10 @@ export class AppService implements OnModuleInit {
   // Timings predeterminados
   private readonly normalTimings: TimingConfig = {
     red: 1,
-    yellow: 3,
+    yellow: 4,
     green: 35,
   };
-  private readonly peakTimings: TimingConfig = { red: 1, yellow: 3, green: 45 };
+  private readonly peakTimings: TimingConfig = { red: 1, yellow: 4, green: 45 };
   private readonly flashTimings: TimingConfig = { red: 1, yellow: 1, green: 1 };
 
   // Estado del sistema
